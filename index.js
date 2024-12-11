@@ -37,7 +37,7 @@ app.post('/api/users', async (req, res, next) => {
   
     const result = await newUser.save();
     
-    console.log('POST Create user result: ', result)
+    //console.log('POST Create user result: ', result)
 
     return res.json({
       username: result.username,
@@ -57,19 +57,28 @@ app.get('/api/users', async (req, res) => {
   // Db query
   const queryResult = await User.find({}, 'username _id').exec();
 
-  console.log('GET All Users: ', queryResult)
+  //console.log('GET All Users: ', queryResult)
 
   return res.json(queryResult)
 
 })
 
 // Users POST create new exercise for 1 user
-app.post('/api/users/:_id/exercises', async (req, res, next) => {
+app.post('/api/users/:_id/exercises', async (req, res) => {
+
+  let date = new Date().toDateString();
+
+  // Had to add 1 day extra because of timezone difference
+  if ( req.body.date ) {
+    let dateFix = new Date(req.body.date);
+    let plusOneDay = dateFix.setDate(dateFix.getDate() + 1);
+    date = new Date(plusOneDay).toDateString();
+  }
 
   const updateUser = await User.updateOne({ _id: req.params._id }, {
     description: req.body.description,
     duration: req.body.duration,
-    date: !req.body.date? new Date().toDateString() : new Date(req.body.date).toDateString()
+    date: date
   })
 
   //console.log('New exercise result: ', updateUser)
@@ -86,45 +95,66 @@ app.post('/api/users/:_id/exercises', async (req, res, next) => {
 // GET all exercises from specific user
 app.get('/api/users/:_id/logs', async (req, res) => {
 
-  let query;
-
+  //let query;
   // Optional query parameters
-  if ( req.query.from || req.query.to || req.query.limit ) {
-    // Adding 'from' and 'to' to date parameter
-    query = User.find({
-      _id: req.params._id,
-      date: { 
-        $gt :  new Date(req.query.from).toDateString(), 
-        $lt : new Date(req.query.to).toDateString()
-      }
-    })
-    // Adding limit
-    query.limit(req.query.limit)
-  }
-  else query = User.find({_id: req.params._id})
+  // if ( req.query.from || req.query.to || req.query.limit ) {
+  //   // Adding 'from' and 'to' to date parameter
+  //   query = User.find({
+  //     _id: req.params._id,
+  //     date: { 
+  //       $gt :  new Date(req.query.from).toDateString(), 
+  //       $lt : new Date(req.query.to).toDateString()
+  //     }
+  //   })
+  //   // Adding limit
+  //   query.limit(req.query.limit)
+  // }
+  // else query = User.find({_id: req.params._id})
 
 
   // Db query
-  const queryResult = await query.exec();
+  const queryResult = await User.find({_id: req.params._id}).exec();
 
   console.log('GET All logs from User: ', queryResult)
 
   // Initial response object
   let responseObject = {
-    username: queryResult[0].username,
-    count: queryResult.length,
     _id: req.params._id,
     log: []
   }
 
   // Loop over results to fill response object properly
   for ( let i = 0; i < queryResult.length; i++ ) {
+
+    responseObject.username = queryResult[i].username
+
+    const { to, from, limit} = req.query;
+
+    if ( from || to || limit ) {
+
+      console.log('from: ', from)
+      console.log('to: ', to)
+      console.log('limit: ', limit)
+
+      console.log(req)
+
+      if ( queryResult[i].date < new Date(from).toDateString() ) continue;
+      if ( queryResult[i].date > new Date(to).toDateString() ) continue;
+      if ( i > limit ) break;
+    }
+
     responseObject.log.push({
       description: queryResult[i].description,
       duration: queryResult[i].duration,
       date: queryResult[i].date,
     })
   }
+
+  // /api/users/675889ccbcc861589f84fd58/logs?from=1928-05-05&to=2050-05-05&limit=5
+
+  responseObject.count = responseObject.log.length;
+
+  console.log('Response: ', responseObject)
 
   // Response
   return res.json(responseObject)
