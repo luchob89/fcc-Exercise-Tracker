@@ -27,19 +27,13 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-
 // Create User POST endpoint
 app.post('/api/users', async (req, res, next) => {
-
   try {
-
-    const newUser = new User({
-      username: req.body.username
-    });
+    
+    const newUser = new User({ username: req.body.username });
   
     const result = await newUser.save();
-    
-    //console.log('POST Create user result: ', result)
 
     return res.json({
       username: result.username,
@@ -50,19 +44,14 @@ app.post('/api/users', async (req, res, next) => {
   catch (err) {
     console.error(err)
   }
-
 })
 
 // Users GET endpoint: returns an array of all the users with "username" and "_id" fields only
 app.get('/api/users', async (req, res) => {
 
-  // Db query
   const queryResult = await User.find({}, 'username _id').exec();
 
-  //console.log('GET All Users: ', queryResult)
-
   return res.json(queryResult)
-
 })
 
 // Users POST create new exercise for 1 user
@@ -77,7 +66,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     date = new Date(plusOneDay).toDateString();
   }
 
-  const newSolution = await User.findByIdAndUpdate(req.params._id, {
+  const addExercise = await User.findByIdAndUpdate(req.params._id, {
     $push: { 
       exercises: {
         description: req.body.description,
@@ -87,30 +76,25 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     }
   })
 
-  console.log('New solution: ', newSolution)
-
+  // Response
   return res.json({
-    username: newSolution.username,
+    username: addExercise.username,
     description: req.body.description,
     duration: parseInt(req.body.duration),
     date: date,
     _id: req.params._id
   })
-
 })
 
 // GET all exercises from specific user
 app.get('/api/users/:_id/logs', async (req, res) => {
 
-  // Db query
   const userExercises = await User.findById(req.params._id).exec();
 
-  console.log('userExercises: ', userExercises)
-
+  // Query parameters handler
   const { to, from, limit} = req.query;
-
-  if ( from ) userExercises.exercises = userExercises.exercises.filter( exercise => exercise.date > new Date(from).toDateString() )
-  if ( to ) userExercises.exercises = userExercises.exercises.filter( exercise => exercise.date < new Date(to).toDateString() )
+  if ( from ) userExercises.exercises.filter( exercise => exercise.date > new Date(from).toDateString() )
+  if ( to ) userExercises.exercises.filter( exercise => exercise.date < new Date(to).toDateString() )
   if ( limit ) userExercises.exercises = userExercises.exercises.slice(0, limit)
 
   // Response
